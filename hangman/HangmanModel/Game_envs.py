@@ -17,7 +17,7 @@ import logging
 
 conf_file = None #input this later
 
-MaxLen = 29
+
 
 with open(conf_file, 'r') as stream:
 	try:
@@ -60,16 +60,19 @@ class Hangman_Env(gym.Env):
         self.guessed_letters = np.zeros(26, dtype=int)
         self.attempts_left = 6
         self.win = False
+        self.MaxLen = MaxLen
             
-        self.init_state()
+        self.reset()
 
-    def init_state(self):
+    def reset(self):
         """Reset the state of the environment to an initial state"""
         # Choose a random word from the list
         self.curr_word = rnd.choice(self.dictionary) #this need to change when attaching to the api
         self.unknown_word = ['_'] * len(self.curr_word)  # Hidden word representation
         self.guessed_letters = [-1] * 26  # Initialize as all unguessed
         self.attempts_left = 6  # 6 guesses for each word
+        logger.info("Reset: new word! new round!")
+        logger.info("Reset: New word is [" + self.curr_word +"]")
         
         return np.array(self.guessed_letters)
     
@@ -120,6 +123,29 @@ class Hangman_Env(gym.Env):
         print(f"Word: {unknown_word_str}")
         print(f"Guessed Letters: {guessed_letters_str}")
         print(f"Attempts Left: {self.attempts_left}")
+        
+    def word2logit(self, word):
+        
+        word = word.strip().lower()
+        if len(word) < 3:
+            return None, None, None
+
+        logits = np.zeros((len(word), 1))
+
+		# k = 01234...26 a-z_
+        char_hash = {k: [] for k in range(27)}
+
+        for i, c in enumerate(word):
+            idx = ord(c)-ord('a')
+            if 0 > idx and idx > 25:
+                idx = 26
+			#update chars dict
+            char_hash[idx].append(i)
+			#one-hot encode
+            logits[i][0] = idx
+
+
+        return logits, char_hash
         
 
     def close(self):
