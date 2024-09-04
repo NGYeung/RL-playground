@@ -7,23 +7,11 @@ More games can be added.
 @author: Yiyang Liu
 """
 import gymnasium as gym
-from gymnasium.spaces import Text, MultiDiscrete, Discrete, MultiBinary, Tuple
+from gymnasium.spaces import MultiDiscrete, Discrete, MultiBinary, Tuple
 import numpy as np
 import random as rnd
-import yaml
 import logging
 
-
-
-conf_file = None #input this later
-
-
-
-with open(conf_file, 'r') as stream:
-	try:
-		config = yaml.safe_load(stream)
-	except yaml.YAMLError as exc:
-		print(exc)
 
 logger = logging.getLogger('root')
 # logger.warning('is when this event was logged.')
@@ -35,19 +23,23 @@ class Hangman_Env(gym.Env):
     
     metadata = {'render.modes': ['human']}
     
-    def __init__(self, dict_file = None, MaxLen = 29):
+    def __init__(self, dict_file = None, MaxLen = 27):
         """Initialize the hangman game environment. """
         
         
         super(Hangman_Env, self).__init__()
        
-        self.action_space = Discrete(26)  # the alphabet a-z
+        self.action_space = Discrete(26)  # the alphabet a-z = ord(x)-ord('a')
         
         self.observation_space = Tuple((
-			MultiDiscrete(np.array([MaxLen]*27)),  # The state space of strings 
-			MultiBinary(26),                            # Guessed letters 0 or 1
+			MultiDiscrete(np.array([27]*MaxLen)),  # The state space of strings  
+			MultiBinary([2]*26),# Guessed letters a-z guessed 1 unguessed 0
             Discrete(6 + 1) # attempt left = 0-6
-            ))   
+            )) 
+        #Example
+        #observation 0: a___e = [0 26 26 26 4 0000000..]
+        #observation 1:  only a and e are guessed [1 0 0 0 1 0000]
+        #observation 2: 3 attemps are left [3]
         
         if dict_file is None:
             self.dictionary = list('no training dictionary for this game')
@@ -69,7 +61,7 @@ class Hangman_Env(gym.Env):
         # Choose a random word from the list
         self.curr_word = rnd.choice(self.dictionary) #this need to change when attaching to the api
         self.unknown_word = ['_'] * len(self.curr_word)  # Hidden word representation
-        self.guessed_letters = [-1] * 26  # Initialize as all unguessed
+        self.guessed_letters = [0] * 26  # Initialize as all unguessed
         self.attempts_left = 6  # 6 guesses for each word
         logger.info("Reset: new word! new round!")
         logger.info("Reset: New word is [" + self.curr_word +"]")
@@ -112,9 +104,11 @@ class Hangman_Env(gym.Env):
        return self._get_observation(), reward, done, {}
     
     def _get_observation(self):
-        unknown_word_logits = [0 if char == '_' else 1 for char in self.unknown_word]
+        
+        unknown_word_logits = [26 if char == '_' else ord(char)-ord('a') for char in self.unknown_word]
+        padding = [0]*(self.MaxLen-len(self.unknown_word_logits))
         # 1 =  know 0 = unknown
-        return unknown_word_logits, self.guessed_letters, self.attempts_left
+        return unknown_word_logits+padding, self.guessed_letters, self.attempts_left, {}
     
     
     def render(self, mode='human'):
@@ -124,32 +118,6 @@ class Hangman_Env(gym.Env):
         print(f"Guessed Letters: {guessed_letters_str}")
         print(f"Attempts Left: {self.attempts_left}")
         
-    def word2logit(self, word):
-        
-        word = word.strip().lower()
-        if len(word) < 3:
-            return None, None, None
+    
 
-        logits = np.zeros((len(word), 1))
-
-		# k = 01234...26 a-z_
-        char_hash = {k: [] for k in range(27)}
-
-        for i, c in enumerate(word):
-            idx = ord(c)-ord('a')
-            if 0 > idx and idx > 25:
-                idx = 26
-			#update chars dict
-            char_hash[idx].append(i)
-			#one-hot encode
-            logits[i][0] = idx
-
-
-        return logits, char_hash
-        
-
-    def close(self):
-        # Clean up if necessary
-        pass
-        
     

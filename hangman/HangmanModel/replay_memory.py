@@ -5,7 +5,7 @@ Created on Thu Aug 22 14:59:44 2024
 @author: Yiyang Liu
 """
 
-import random
+import random as rnd
 from collections import namedtuple
 
 # Define a tuple to store transitions
@@ -26,7 +26,7 @@ class ReplayMemory:
 
     def sample(self, batch_size):
         """Randomly sample a batch of transitions."""
-        return random.sample(self.memory, batch_size)
+        return rnd.sample(self.memory, batch_size)
 
     def __len__(self):
         return len(self.memory)
