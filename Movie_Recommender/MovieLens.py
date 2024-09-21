@@ -21,7 +21,7 @@ from transformers import BertTokenizer
 filepath = {
     'user': r"C:\Users\yyBee\Datasets\ml-100k\User_EVERYTHING.csv",
     'rating': r"C:\Users\yyBee\Datasets\ml-100k\rating_info.csv",
-    'movie': r"C:\Users\yyBee\Datasets\ml-100k\movie_info.csv"}
+    'movie': r"C:\Users\yyBee\Datasets\ml-100k\movies_info.csv"}
 
 class Movie_100K():
     
@@ -73,14 +73,19 @@ class Movie_100K():
         3. Gender to boolean.
         '''
         users = pd.read_csv(self.path['user'])
+        
         users = users.apply(self.process_user, axis = 1)
+        #print(users.iloc[1])
         movies = pd.read_csv(self.path['movie'])
-        movies = movies.append(self.process_movie, axis = 1)
+        #print(movies.iloc[1])
+        movies = movies.apply(self.process_movie, axis = 1)
+        #print(movies.iloc[1])
         ratings = pd.read_csv(self.path['rating'])
+        #print(ratings.iloc[1])
         
         # merge all into a big table
-        big_table = pd.merge(users, ratings, left_index=True, right_on='user_id')
-        big_table = pd.merge(big_table, movies, left_on='movie_id', right_on='movie_id')
+        big_table = pd.merge(users, ratings, left_on='user_id', right_on='user_id')
+        big_table = pd.merge(big_table, movies, left_on='item_id', right_on='movie_id')
         
         self.data = big_table
         #self.data = self.data.apply(self.encode_user, axis = 1)
@@ -112,7 +117,7 @@ class Movie_100K():
         row['date'] = np.array(dt_vec)
         
         g = row['genre']
-        g = g[1:len(g)-1].split
+        g = g[1:len(g)-1].split()
         g = [int(i) for i in g]
         row['genre'] = g
         
@@ -122,13 +127,16 @@ class Movie_100K():
 
     def process_user(self,row):
 
-        occupation = list(row.iloc[22:])
-        average_rating = list(row.iloc[3:22])
+        occupation = list(row.iloc[24:])
+        average_rating = list(row.iloc[4:24])
+        #print(occupation,average_rating)
         
         row['occupation'] = occupation
         row['average_rating'] = average_rating
         
-        row = row.iloc[1:] #change to select only the infos.
+         #change to select only the infos.
+        
+        return row[['user_id','age','gender','zip_code','average_rating','occupation']]
 
 
     
