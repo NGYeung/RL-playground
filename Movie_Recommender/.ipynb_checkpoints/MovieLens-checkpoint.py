@@ -73,16 +73,12 @@ class Movie_100K():
         3. Gender to boolean.
         '''
         users = pd.read_csv(self.path['user'])
-        users = users.apply(self.process_user, axis = 1)
         movies = pd.read_csv(self.path['movie'])
-        movies = movies.append(self.process_movie, axis = 1)
         ratings = pd.read_csv(self.path['rating'])
-        
+
         # merge all into a big table
-        big_table = pd.merge(users, ratings, left_index=True, right_on='user_id')
-        big_table = pd.merge(big_table, movies, left_on='movie_id', right_on='movie_id')
         
-        self.data = big_table
+        self.data = pd.read_csv(self.path)
         #self.data = self.data.apply(self.encode_user, axis = 1)
         #self.data = self.data.apply(self.encoder_dates, axis = 1)
 
@@ -110,25 +106,12 @@ class Movie_100K():
         dt_vec += [np.sin(2 * np.pi * day/ 12), np.cos(2 * np.pi * day / 31)]
         
         row['date'] = np.array(dt_vec)
-        
-        g = row['genre']
-        g = g[1:len(g)-1].split
-        g = [int(i) for i in g]
-        row['genre'] = g
-        
-        
         return row
 
 
     def process_user(self,row):
 
-        occupation = list(row.iloc[22:])
-        average_rating = list(row.iloc[3:22])
-        
-        row['occupation'] = occupation
-        row['average_rating'] = average_rating
-        
-        row = row.iloc[1:] #change to select only the infos.
+        pass
 
 
     
