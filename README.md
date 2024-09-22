@@ -1,7 +1,19 @@
 # RL-playground-hangman-movieReco
 This repository is my playground for reinforcement learning.
 
-Project 1: Q-learning for Hangman.
+Project 1: Movie Recommender
+
+	- All files and training notebooks are in the Movie_Recommender folder
+
+ 	- Data Set: MovieLens 100K
+
+ 	- The Baseline model: Double DQN with STOCHASTIC PRIORITIZED REPLAY 
+
+  		* DQN architecture:  [FC1] -> relu -> [FC2] -> relu -> [FC3] -> log_softmax -> output
+
+	
+
+Project 2: Q-learning for Hangman.
 
 	- All files and training notebooks are in the hangman folder.
 
@@ -24,4 +36,4 @@ Project 1: Q-learning for Hangman.
 
 
 
-Project 2: Movie Reco
+
