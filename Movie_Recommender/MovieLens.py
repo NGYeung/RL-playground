@@ -21,17 +21,19 @@ from transformers import BertTokenizer
 filepath = {
     'user': r"C:\Users\yyBee\Datasets\ml-100k\User_EVERYTHING.csv",
     'rating': r"C:\Users\yyBee\Datasets\ml-100k\rating_info.csv",
-    'movie': r"C:\Users\yyBee\Datasets\ml-100k\movies_info.csv"}
+    'movie': r"C:\Users\yyBee\Datasets\ml-100k\movies_info.csv",
+    'embedding': r"C:\Users\yyBee\Datasets\ml-100k\encoded_text_dim16.pt"}
 
 class Movie_100K():
     
-    def __init__(self, filename = filepath, for_training = False):
+    def __init__(self, filename = filepath, for_training = False, embedding = False):
         '''
         Input: filename[dict] = {rating_file:path, user_file:path, movie_file:path}
 
         '''
         
         self.encode_title = 0 
+        self.need_embedding = embedding
         self.item = {}
         self.path = filename
         self.load()
@@ -59,8 +61,13 @@ class Movie_100K():
         movie:{'movieid':[Int], 'title':[Str], 'date':[Int], 'genre':nparray }
         user:{'user_id':[Int], 'age':[Int], gender:[Int] 'occupation':nparray}
         '''
-        self.item = self.data.iloc[idx,2:].to_dict()
-        
+        self.item = self.data.iloc[idx,:].to_dict()
+        self.item.pop('item_id_y')
+        self.item.pop('item_id_x')
+        self.item.pop('Unnamed: 0_x')
+        self.item.pop('Unnamed: 0_y')
+        if self.need_embedding:
+            self.item['title_embedding'] = self.embedding[idx,:]
         #orient='records' exclude the index
         return self.item
     
@@ -81,7 +88,13 @@ class Movie_100K():
         movies = movies.apply(self.process_movie, axis = 1)
         #print(movies.iloc[1])
         ratings = pd.read_csv(self.path['rating'])
-        #print(ratings.iloc[1])
+        movie_avg = ratings[['item_id','rating']].groupby('item_id').mean().reset_index()
+        movie_avg.columns = ['item_id','film_avg_rating']
+        movies = pd.merge(movies, movie_avg, left_on='movie_id', right_on='item_id')
+        
+        
+   
+        
         
         # merge all into a big table
         big_table = pd.merge(users, ratings, left_on='user_id', right_on='user_id')
@@ -90,6 +103,8 @@ class Movie_100K():
         self.data = big_table
         #self.data = self.data.apply(self.encode_user, axis = 1)
         #self.data = self.data.apply(self.encoder_dates, axis = 1)
+        if self.need_embedding:
+            self.embedding = torch.load(self.path['embedding'])
 
 
         
@@ -141,6 +156,39 @@ class Movie_100K():
 
     
 
+def Data2State(Data):
+    '''
+    A function to map the data to states in RL
+    Input: one instance of Data
+    '''
+    stack = []
+    obs0 = torch.zeros((2,))
+    obs0[1] = Data['average_rating'][-1]
+    obs0[0] = Data['film_avg_rating']
+    stack.append(obs0)
+    stack.append(Data['title_embedding'])
+    stack.append(torch.tensor(Data['date']))
+    stack.append(torch.tensor(Data['genre']))
+    stack.append(torch.tensor([Data['age']]))
+    stack.append(torch.tensor([Data['gender']]))
+    stack.append(torch.tensor(Data['occupation']))
+    
+    
+    # An observation includes:
+    # observation 0: the average rating of the film and the average rating given by the user
+    # observation 1: title_embedding. Choose embedding length = 8
+    # observation 2: move date 
+    # observation 3: movie genre. = MultiDiscrete([2]*19)
+    # observation 4: user age
+    # observation 5: user gender
+    # observation 6: user occupation
+    # observation 7: user location 
+    #so far location is excluded, can be added in the future. 
+    
+    
+    return np.array(torch.stack(stack, dim=0))
+    # use np array because we want to use njit for state operation.
+    
     
 
     

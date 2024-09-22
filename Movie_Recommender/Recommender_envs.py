@@ -7,10 +7,14 @@ More games can be added.
 @author: Yiyang Liu
 """
 import gymnasium as gym
-from gymnasium.spaces import Box, MultiDiscrete, Discrete, MultiBinary, Tuple
+from gymnasium.spaces import Box, Discrete, MultiBinary, Tuple
 import numpy as np
 import random as rnd
 import logging
+from typing import List
+from numba import njit
+
+from MovieLens import Movie_100K, Data2State
 
 
 logger = logging.getLogger('root')
@@ -36,13 +40,12 @@ class Reco_Env(gym.Env):
         
         self.observation_space = Tuple(Box(low=1.0, high=5.0, shape = (2,)),
                                        Box(low = -1, high = 1, shape = (8,)),
-                                       Discrete(2023),
+                                       Box(low=-1, high = 3,shape=(5,)),
                                        MultiBinary(19),
                                        Discrete(99),
                                        Discrete(2),
-                                       MultiBinary(21),
-                                       Discrete(11)
-                                       ) 
+                                       MultiBinary(20)
+                                       )
         # An observation includes:
         # observation 0: the average rating of the film and the average rating given by the user
         # observation 1: title_embedding. Choose embedding length = 8
@@ -51,58 +54,60 @@ class Reco_Env(gym.Env):
         # observation 4: user age
         # observation 5: user gender
         # observation 6: user occupation
-        # observation 7: user location
+        # observation 7: user location we excluded the location so far
              
         self.database = ini_dataset
-        self.state = (np.zeros(2,),np,zeros(8,))
+        self.state = None
+        self.rating = -1 # the ground truth
+        self.action = -1
+        self.reward = 0
 
 
-    def new_game(self):
+    def reset(self):
         """Reset the state of the environment to an initial state"""
         idx = rnd.randint(0, 100000)
         data_item = self.database[idx]
-        
-        self.observations['film_avg']  = data_item['film_avg']
-        self.observations['user_avg']  = data_item['user_avg']
-        self.observations['film_avg']  = data_item['film_avg']
-        self.observations['film_avg']  = data_item['film_avg']
+        self.state = Data2State(data_item)
+        self.rating = data_item['rating']
     
-    def step(self, action):
+    def step(self, action: int) -> int:
         '''
         take the action chosen by agent as the input, give reward and update the state.
+        
+        Current game rules: (used as the baseline)
+            if action == rating: +3, 
+            if abs(action+1 - rating) == 1: +1
+            if abs(action+1 - rating) == 2: -1
+            if abs(action+1 - rating >= 3): -3
         '''
+        
+        self.action = action
+        
+        measure = abs(action - self.rating)
+        reward = 0
+        
+        if measure == 0:
+            reward = 3
+        elif measure == 1:
+            reward = 1
+        elif measure == 2:
+            reward = -1
+        else: 
+            reward = -3
+        
+        return reward
+        
     
-        
-        # initialize reward
-        
-        
-    
-    def translate(self, state_vec):
-        '''
-        From state vector to Data for rendering
-        '''
-       
-        
-       
-        
-    def _get_observation(self):
-        '''
-        Return the current state in a dictionary to calculate rewards
-        film_avg: float - average rating of the film
-        user_avg: float - average rating given by the user
-        '''
-        
-        observations = {}
-        observations['film_avg'] = state
-        observations['title_emb'] = 
-        
-        pass
     
     def render(self, mode='human'):
         
+        print(f"Movie: {self.data_item['title']}")
+        print(f"User Rating: {self.rating}")
+        print(f"Predicted Rating: {self.action}")
+        print(f"Reward: {self.reward}")
         
-        
-        pass
+    
+    
     
 
     
