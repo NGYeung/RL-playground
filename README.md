@@ -3,6 +3,8 @@ This repository is my playground for reinforcement learning.
 
 Project 1: Q-learning for Hangman.
 
+	- All files and training notebooks are in the hangman folder.
+
 	- This repository provided gym environments and agents for both table-based and Deep NN Q-learning. 
 
 	- State: 
@@ -17,6 +19,8 @@ Project 1: Q-learning for Hangman.
 		wrong guess -1
 		win game + 10
 		lose game -10
+
+  	- Result after one epoch on table-based Q: 61%
 
 
 
