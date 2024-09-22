@@ -1,7 +1,7 @@
 # RL-playground-hangman-movieReco
 This repository is my playground for reinforcement learning.
 
-Project 1: Movie Recommender
+Project 1: Movie Recommender with (DDQN and GNN)
 
 	- All files and training notebooks are in the Movie_Recommender folder
 
@@ -9,7 +9,15 @@ Project 1: Movie Recommender
 
  	- The Baseline model: Double DQN with STOCHASTIC PRIORITIZED REPLAY 
 
+  		* Selected Features: movie title, movie date, genre, movie rating avg, user age, user average rating (for all and each genre), user occupation
+    		* Output: Predicted rating of the movie.
+      		* Metrics: MSE Loss.
+
   		* DQN architecture:  [FC1] -> relu -> [FC2] -> relu -> [FC3] -> log_softmax -> output
+
+    		
+
+    		
 
 	
 
