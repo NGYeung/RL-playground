@@ -28,7 +28,7 @@ class Reco_Env(gym.Env):
     
     metadata = {'render.modes': ['human']}
     
-    def __init__(self, ini_dataset = None, embedding_size = 64):
+    def __init__(self, train_dataset, test_dataset, embedding_size = 64, train_test_split = 0.8):
         """Initialize the hangman game environment. """
         
         
@@ -55,19 +55,45 @@ class Reco_Env(gym.Env):
         # observation 6: user occupation
         # observation 7: user location we excluded the location so far
              
-        self.database = ini_dataset
+        self.traindata = train_dataset
+        self.train_size = 100000*train_test_split
+        self.testdata = test_dataset
+        self.test_size = 100000*(1-train_test_split)
         self.state = None
         self.rating = -1 # the ground truth
         self.action = -1
         self.reward = 0
+        self.index = 0
 
 
     def reset(self):
         """Reset the state of the environment to an initial state"""
         idx = rnd.randint(0, 100000)
-        data_item = self.database[idx]
+        data_item = self.traindata[idx]
         self.state = Data2State(data_item)
         self.rating = data_item['rating']
+        
+        return self.get_observation()
+    
+    
+    def reset_for_eval(self):
+        """Reset the state of the environment to an initial state"""
+        
+        
+        idx = self.index
+        
+        data_item = self.testdata[idx]
+        self.state = Data2State(data_item)
+        self.rating = data_item['rating']
+        
+        go = True
+        self.index += 1
+        if self.index >= self.test_size:
+            go = False
+        
+        
+        return self.state, self.rating, go
+    
     
     def step(self, action: int) -> int:
         '''
@@ -94,9 +120,9 @@ class Reco_Env(gym.Env):
         else: 
             reward = -3
         
-        self.reward
+        self.reward = reward
         
-        return self.get_observation()
+        return self.reward
     
     
     def get_observation(self):
@@ -104,7 +130,7 @@ class Reco_Env(gym.Env):
         return the state, action, reward
         '''
         
-        return self.reward, self.state, self.action, self.rating, self.reward
+        return  self.state, self.rating
         
     
     

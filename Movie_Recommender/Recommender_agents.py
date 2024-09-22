@@ -22,12 +22,10 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torch.optim.lr_scheduler as lr_scheduler
 
-from replay_memory import ReplayMemory_Prior, Transition
+from replay_memory import ReplayMemory_Prior
 import time
 import logging
 
-#https://huggingface.co/docs/transformers/en/model_doc/decision_transformer
-#from transformers import DecisionTransformerConfig, DecisionTransformerModel
 from Recommender_envs import Reco_Env
 
 
@@ -42,11 +40,14 @@ class base_DQN(nn.Module):
         self.fc1 = nn.Linear(state_size, 64)
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, action_size)
+        self.softmax = F.softmax(action_size)
+        
 
     def forward(self, x):
-        x = torch.relu(self.fc1(x))
-        x = torch.relu(self.fc2(x))
-        return self.fc3(x)
+        x = self.fc1(x)
+        x = self.fc2(x)
+        x = self.fc3(x)
+        return self.softmax(x)
 
 
 class Reco_Agent():
@@ -70,12 +71,21 @@ class Reco_Agent():
         
         # Use Double DQN and if it's an overshoot then switch back to usual dqn
         if self.config.model == 'base':
+            print("\n \t ----------- Model = Baseline Double DQN ------------")
+            print("\t Loading Policy Net ......")
             self.policy_net = base_DQN(self.state_size, self.action_size)
+            print("\t *Total Params* = ",sum(p.numel() for p in self.policy_net.parameters()))
+            print("\t *Trainable Params* = ",sum(p.numel() for p in self.policy_net.parameters() if p.requires_grad))
+            
+            print("\t Loading Target Net ......")
             self.target_net = base_DQN().to(self.device)
+            
+      
             
         self.optimizer = optim.RMSprop(self.policy_net.parameters(),lr = 1e-4, alpha=0.99, eps=1e-8, weight_decay=1e-5)
         self.scheduler = lr_scheduler.ExponentialLR(self.optimizer, self.config.gamma)
         self.target_net.eval()
+        print("\n \t ----------- Model Loaded ------------")
     
         
     def update_target_net(self):
@@ -91,99 +101,74 @@ class Reco_Agent():
              
 
     
-    def act(self, state, for_test = False):
+    def act(self, state):
         '''
         Select an action. This is the function to call when playing the game.
         '''
         
         sample = rnd.random()
         eps = self.eps_scheduler()
+        Q_sequence = self.policy_net(state)
             
         if sample > eps: #exploit
-            #print('exploit')
             with torch.no_grad():
-                action_sequence = self.policy_net(state.float())
-                #selected_action = self.policy_net(state.float()).argmax() # what if I change it to select the max unguessed letter?? --08/27
-                _, actions = torch.topk(action_sequence, 26, sorted = False)
-                #print(actions)
-                for action_idx in actions.tolist():
-                    if self.env.guessed_letters[action_idx] == 0:
-                        return action_idx
+              
+                Q, actions = torch.topk(Q_sequence, 1, sorted = False)
+              
                 
         else: 
             
-            selected_action = rnd.choice([0,1,2,3,4])
-            return selected_action
+            # explore by randomly rate the film and observe the reward
+            action = rnd.choice([0,1,2,3,4])
+            Q = Q_sequence[action]
+            return action, Q
+        
+        
 
-
-    def train_n_play(self):
+    def train(self):
         '''
-        The training loop
+        The training/playing loop
         '''
         
-        #self.observation_space = Tuple((
-		#	MultiDiscrete(np.array([MaxLen]*27)),  # The state space of strings 
-		#	MultiBinary(26),                            # Guessed letters 0 or 1
-        #    Discrete(6 + 1) # attempt left = 0-6
-        #    )) 
+        start = time.time()
+
         num_episodes = self.config.num_episodes
-        self.episode_durations = []
-        self.reward_in_episode = []
-        reward_in_episode = 0
+        
+        mseloss = 0
+      
+        state, rating = self.env.reset()
         for epi_idx in range(num_episodes):
             # episode start. Initiate env.
-            state = self.env.reset()
-           
             
-            state = torch.cat((state[0], state[1], torch.tensor(state[2]).unsqueeze(0)), dim=0)
-          
-            count = -1
-            while True:
-                count += 1
-                # Select an action
-                action = self.act(state)
-                next_state, reward, done, _ = self.env.step(int(action))
-         
-                next_state = torch.cat((next_state[0], next_state[1],torch.tensor(next_state[2]).unsqueeze(0)), dim=0)
-
-                # Store the transition
-                self.memory.push(state, action, next_state, reward)
+            action, Q = self.act(state)
+            reward = self.env.step(int(action))
+            
+            prev_state = state
+            
+            mseloss += (rating - action -1)**2
+            
+            state, rating = self.env.reset()
+            
+            # Compute the TD error for prioritized experience replay
+            Q_next = max(self.policy_nets(state))
+            TD_error = reward + self.config.gamma* Q_next - Q
+            
+            
+            # store the transition
+            self.memory.push(TD_error, prev_state, action, reward, state)
+            
                 
-                if epi_idx >= self.config.warmup: 
-                    self.replay()
-                    self.scheduler.step()
-                    done = (count > 10) or done
-                else:
-                    done = (count > 10) or done
+            if epi_idx >= self.config.warmup: 
+                self.replay()
+                self.scheduler.step()
+   
+            # render frequency
+            if epi_idx % self.config.render_freq == 0:
+                print('episode:', epi_idx)
+                self.env.render()
+                print('exploit vs explore:', self.eps_scheduler())
                 
-                    
-
-                
-                # Move to the next state
-                state = next_state
-                reward_in_episode += reward
-
-                if epi_idx % 100 == 0:
-                    print('episode', epi_idx)
-                    self.env.render()
-                    print(self.eps_scheduler())
-                
-                
-
-                if done:
-                    self.episode_durations.append(count + 1)
-                    self.reward_in_episode.append(reward_in_episode)
-                    reward_in_episode = 0
-                    break
-
-
-                self.last_episode = epi_idx
-
-                if done:
-                    self.episode_durations.append(count + 1)
-
-                    break
-                
+        
             # Update the target network
             if epi_idx % self.config.target_update_freq == 0:
                 self.target_net.load_state_dict(self.policy_net.state_dict())
@@ -191,6 +176,37 @@ class Reco_Agent():
          
             if epi_idx % self.config.save_freq == 0:
                 self.save(self.config.save_file_name)
+                
+        mseloss = mseloss/num_episodes
+        
+        print(f"1 Training epoch {num_episodes} done, the average training loss is {mseloss}")
+        print(f"Total time for training: {time.time() -  start} seconds")
+        
+                
+                
+                
+    def test(self):
+        
+        '''Evaluate the trained model on the testing dataset.'''
+        go = True
+        start = time.time()
+        Error = 0
+        counter = 0
+        while go:
+            counter += 1
+            state, rating, go = self.env.reset_for_eval()
+            action, _ = self.act(state)
+            
+            Error += (action - rating) **2
+        
+        Error = Error/counter
+        
+        print("Test run finished. The final testing loss is: {Error}")
+        print(f"Total time for evaluation: {time.time() -  start} seconds")
+        
+
+            
+            
     
     
     def replay(self):
@@ -202,57 +218,48 @@ class Reco_Agent():
         batch_size = self.config.batch_size
         if len(self.memory) < batch_size:
             return
-        transitions = self.memory.sample(batch_size)
+        
+        # Stochastic Prioritized Sampling
+        experiences, weights, indices = self.memory.sample(batch_size)
 
-        # to Transition of batch-arrays.
-        batch = Transition(*zip(*transitions))
         
+
+        # All experiences to tensor
+        weights = torch.tensor(weights)
+        cat_next_states = torch.cat(experiences.next_state)
+        cat_state = torch.cat(experiences.state)
+        cat_action  = torch.tensor(experiences.action)
+        cat_reward = torch.tensor(experiences.reward)
+        cat_state.resize_(batch_size, self.state_size).to(self.device).float().requires_grad_(True)
+        cat_next_states.resize_(batch_size, self.state_size).to(self.device).float().requires_grad_(True)
         
-        non_empty_indicator = torch.tensor([1 if s is not None else 0 for s in batch.next_state], device=self.device, dtype=torch.bool)
-        
-        cat_next_states = torch.cat([s.clone().detach() for s in batch.next_state if s is not None])
-        
-        # collate
-        cat_state = torch.cat(batch.state)
-        #cat_action = np.zeros((batch_size,26))
-        #for i, action in enumerate(batch.action):
-        #    cat_action[i,action] = 1
-        cat_action  = torch.tensor(batch.action)
-        #cat_action = torch.tensor(cat_action, device=self.device, dtype=torch.int64)
-        cat_reward = torch.tensor(batch.reward)
-        cat_state.resize_(batch_size, 27+26+1).to(self.device).float().requires_grad_(True)
-        cat_next_states.resize_(batch_size, 27+26+1).to(self.device).float().requires_grad_(True)
         
         # compute Q from policy_net
-        curr_state_Q = self.policy_net(cat_state.float())[torch.arange(batch_size), cat_action] # 0827 the problem is this line.
-        #print('curr Q',curr_state_Q, curr_state_Q.shape)
-        
+        curr_state_Q = self.policy_net(cat_state.float())[torch.arange(batch_size), cat_action] 
         next_state_Q = torch.zeros(batch_size, device=self.device, dtype=torch.float)
-
-        next_state_Q[non_empty_indicator] = self.target_net(cat_next_states.float()).max(1)[0].detach()
-        #print('next_Q',next_state_Q, next_state_Q.shape)
-        #print('reward', cat_reward, cat_reward.shape)
-        
+        next_state_Q = self.target_net(cat_next_states.float()).max(1)[0].detach()
+    
         # Compute the expected Q values
         expected_curr_state_Q = (next_state_Q * self.config.gamma) + cat_reward
+        
 
-        # Try to switch betwwen Huber loss and MSE??
-        if self.config.lossfn == 'huber':
-            criterion = nn.SmoothL1Loss()
-            loss = criterion(curr_state_Q, expected_curr_state_Q).float()
 
-        if self.config.lossfn == 'mse':
-            criterion = nn.MSELoss()
-            loss = criterion(curr_state_Q, expected_curr_state_Q).float()
+        # Compute the weighted MSELoss
+        loss = (curr_state_Q - expected_curr_state_Q)**2 
+        loss = loss * weights
+        loss = loss.mean()
             
-    
+        # reset the gradiant
         self.optimizer.zero_grad()
         loss.backward()
 
    
         for name, param in self.policy_net.named_parameters():
- 
-            param.grad.data.clamp_(-1.1, 1.1)
+            
+            pass
+            
+            #Gradient clipping. But let's first see how well it works when it doesn't involve.
+            #param.grad.data.clamp_(-1.1, 1.1)
   
         self.optimizer.step()
     
@@ -273,33 +280,11 @@ class Reco_Agent():
         self.optimizer.load_state_dict(checkpoint['optimizer'])
         self.reward_in_episode = checkpoint['reward']
         self.config = checkpoint['config']
-
-
-    def no_train_just_play(self, tot_episodes=1000):
-      
-
-        win = 0
-        lose = 0
-        for episode in range(tot_episodes):
-            state = self.env.reset()  # reset environment to a new, random state
-            state = (state[0].reshape(-1, self.env.MaxLen), state[1]) 
-            
-            
-            gameover = False
-
-            while not gameover:
-                action = self.act(state)
-                state, reward, gameover, info = self.env.step(action)
-
-                if reward == -10:
-                    lose += 1
-                        
-                if reward == 10:
-                    win += 1
-
-        print(f"Results after {tot_episodes} episodes:")
-        print(f"Average win_rate per episode: {win / tot_episodes}")    
         
+        
+    
+
+
       
 
         

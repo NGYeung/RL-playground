@@ -9,7 +9,7 @@ import numpy.random as rnd
 from collections import namedtuple
 
 # Define a tuple to store transitions
-Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state'))
+Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'TD_error'))
 
 class ReplayMemory_Prior:
     def __init__(self, capacity):
@@ -18,18 +18,36 @@ class ReplayMemory_Prior:
         self.position = 0
         self.priority = []
 
-    def push(self, priority=1, *args):
+    def push(self, priority, prev_state, action, reward, state):
         """Save aone instance of transition."""
         if len(self.memory) < self.capacity:
             self.memory.append(None)
             self.priority.append(None)
         self.priority[self.position] = priority # this is the weight in replay
-        self.memory[self.position] = Transition(*args)
+        self.memory[self.position] = Transition(prev_state, action, reward, state)
         self.position = (self.position + 1) % self.capacity
 
-    def sample(self, batch_size):
+    def sample(self, batch_size, alpha=0.6):
         """Prioritize sampling: a batch of transitions."""
-        return rnd.choice(np.array(self.memory), batch_size)
+        
+        if len(self.memory) == self.capacity:
+            priorities = self.priorities
+        else:
+            priorities = self.priorities[:self.position]
+            
+        prob = priorities ** alpha
+        prob /= prob.sum()
+
+        indices = np.random.choice(len(self.memory), batch_size, p=prob)
+        experiences = [self.memory[i] for i in indices]
+
+        # Calculate important sampling weights
+        total = len(self.memory)
+        weights = (total * prob[indices]) ** (-1)
+        weights /= weights.max()
+
+    
+        return experiences, weights, indices
 
     def __len__(self):
         return len(self.memory)
