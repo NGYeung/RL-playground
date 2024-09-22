@@ -18,7 +18,7 @@ Project 1: Movie Recommender with (DDQN and GNN)
 
   		* DQN architecture:  [FC1] -> relu -> [FC2] -> relu -> [FC3] -> log_softmax -> output
 
-    	- Game Setup:
+    	* Game Setup:
      
        		* State = Concatnated embedding of selected features    
 	 
