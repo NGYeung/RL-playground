@@ -9,8 +9,11 @@ Project 1: Movie Recommender with (DDQN and GNN)
 
  	- The Baseline model: Double DQN with STOCHASTIC PRIORITIZED REPLAY 
 
-  		* Selected Features: movie title, movie date, genre, movie rating avg, user age, user average rating (for all and each genre), user occupation
+  		* Selected Features: movie title, movie date, genre, movie rating avg, 
+                  user age, user average rating (for all and each genre), user occupation
+		  
     		* Output: Predicted rating of the movie.
+      
       		* Metrics: MSE Loss.
 
   		* DQN architecture:  [FC1] -> relu -> [FC2] -> relu -> [FC3] -> log_softmax -> output
