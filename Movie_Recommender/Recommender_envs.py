@@ -26,7 +26,6 @@ class Reco_Env(gym.Env):
     Game: Given observations of movies 
     """
     
-    
     metadata = {'render.modes': ['human']}
     
     def __init__(self, ini_dataset = None, embedding_size = 64):
@@ -95,7 +94,17 @@ class Reco_Env(gym.Env):
         else: 
             reward = -3
         
-        return reward
+        self.reward
+        
+        return self.get_observation()
+    
+    
+    def get_observation(self):
+        '''
+        return the state, action, reward
+        '''
+        
+        return self.reward, self.state, self.action, self.rating, self.reward
         
     
     
@@ -106,6 +115,7 @@ class Reco_Env(gym.Env):
         print(f"Predicted Rating: {self.action}")
         print(f"Reward: {self.reward}")
         
+    
     
     
     
