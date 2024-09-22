@@ -40,12 +40,12 @@ class base_DQN(nn.Module):
         self.fc1 = nn.Linear(state_size, 64)
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, action_size)
-        self.softmax = F.softmax(action_size)
+        self.softmax = F.log_softmax(action_size)
         
 
     def forward(self, x):
-        x = self.fc1(x)
-        x = self.fc2(x)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return self.softmax(x)
 
@@ -197,7 +197,7 @@ class Reco_Agent():
             state, rating, go = self.env.reset_for_eval()
             action, _ = self.act(state)
             
-            Error += (action - rating) **2
+            Error += (action - rating - 1) **2
         
         Error = Error/counter
         

@@ -46,7 +46,7 @@ class Movie_100K():
         
     def __len__(self):
         
-        return self.rating.shape[0]
+        return self.data.shape[0]
     
         
     
