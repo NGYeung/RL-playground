@@ -18,6 +18,15 @@ Project 1: Movie Recommender with (DDQN and GNN)
 
   		* DQN architecture:  [FC1] -> relu -> [FC2] -> relu -> [FC3] -> log_softmax -> output
 
+    	- Game Setup:
+
+       		* State = Concatnated embedding of selected features
+
+   		* Action space: Discrete(5). Actions 0-4 are correspondent to rating 1-5.
+
+     		* Rewards: D = abs(rating -1 - action) | D = 0 -> +3 | D = 1 -> +1 | D = 2 -> -1 | D >=3 -> -3
+	
+
     		
 
     		
