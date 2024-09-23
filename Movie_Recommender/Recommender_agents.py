@@ -177,7 +177,10 @@ class Reco_Agent():
 
             TD_error = reward + self.config.gamma* Q_next - Q
             
-            #print('ErrorShape',TD_error.shape, Q_next, Q, reward, self.config.gamma)
+            if not TD_error:
+                
+                print('ErrorShape',TD_error.shape, Q_next, Q, reward, self.config.gamma)
+                TD_error = 0
             
             
             # store the transition

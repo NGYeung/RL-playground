@@ -42,9 +42,10 @@ class ReplayMemory_Prior:
         #prob = prob.squeeze(0)
         #print('check2', prob)
 
-
+        priorities = np.array(priorities, nan = 0)
         indices = np.random.choice(len(self.memory), batch_size, p=prob)
         experiences = [self.memory[i] for i in indices]
+        prob = np.nan_to_num(prob, nan=0)
 
         # Calculate important sampling weights
         total = len(self.memory)

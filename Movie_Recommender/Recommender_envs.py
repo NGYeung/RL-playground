@@ -28,7 +28,7 @@ class Reco_Env(gym.Env):
     
     metadata = {'render.modes': ['human']}
     
-    def __init__(self, train_dataset, test_dataset, embedding_size = 16, train_test_split = 0.8):
+    def __init__(self, train_dataset, test_dataset, random_sample = False, embedding_size = 16, train_test_split = 0.8):
         """Initialize the hangman game environment. """
         
         
@@ -63,12 +63,18 @@ class Reco_Env(gym.Env):
         self.rating = -1 # the ground truth
         self.action = -1
         self.reward = 0
-        self.index = 0
-
+        self.index = 0 #index for test set
+        self.sample = random_sample
+        self.train_index = 0
+        
 
     def reset(self):
         """Reset the state of the environment to an initial state"""
-        idx = rnd.randint(0, 79999)
+        if self.sample:
+            idx = rnd.randint(0, 79999)
+        else:
+            idx = self.train_index
+            self.train_index = (idx + 1)% 80000
         #sprint(idx)
         data_item = self.traindata[idx]
         self.state = torch.tensor(Data2State(data_item)).float()
