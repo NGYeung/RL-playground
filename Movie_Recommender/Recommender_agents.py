@@ -15,7 +15,7 @@ import numpy as np
 
 
 
-from Reco_config import Config
+from Reco_config import Config4Colab
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -61,7 +61,7 @@ class Reco_Agent():
     def __init__(self, train_data, test_data):
         
         en = Reco_Env(train_data, test_data)
-        self.config = Config() #alpha beta gamma batch_size
+        self.config = Config4Colab() #alpha beta gamma batch_size
         self.state_size = self.config.state_size
         self.action_size = 5
         self.memory = ReplayMemory_Prior(self.config.mem_capacity)
