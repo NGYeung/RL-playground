@@ -306,15 +306,27 @@ class Reco_Agent():
             "config": self.config
             }, filename)
         
-    def load(self, filename = 'train_01.pth'):
+    def load(self, filename = '\content\drive\MyDrive\RL\Movie100K.pt'):
         checkpoint = torch.load(filename)
-        self.policy_net.load_state_dict(checkpoint['policy']).to(self.device)
-        self.target_net.load_state_dict(checkpoint['target']).to(self.device)
+    
+        # Check for incompatible keys
+        result = self.policy_net.load_state_dict(checkpoint['policy'], strict=False)
+        if result.missing_keys:
+            print(f"Missing keys in policy: {result.missing_keys}")
+        if result.unexpected_keys:
+            print(f"Unexpected keys in policy: {result.unexpected_keys}")        
+        self.policy_net.to(self.device)
+    
+        result = self.target_net.load_state_dict(checkpoint['target'], strict=False)
+        if result.missing_keys:
+            print(f"Missing keys in target: {result.missing_keys}")
+        if result.unexpected_keys:
+            print(f"Unexpected keys in target: {result.unexpected_keys}")    
+        self.target_net.to(self.device)
+
         self.optimizer.load_state_dict(checkpoint['optimizer'])
-        self.reward_in_episode = checkpoint['reward']
+        self.reward_in_episode = checkpoint['reward'] 
         self.config = checkpoint['config']
-        
-        
     
 
 
