@@ -23,7 +23,7 @@ class ReplayMemory_Prior:
         if len(self.memory) < self.capacity:
             self.memory.append(None)
             self.priority.append(None)
-        self.priority[self.position] = priority # this is the weight in replay
+        self.priority[self.position] = priority.cpu() # this is the weight in replay
         self.memory[self.position] = Transition(prev_state, action, reward, state)
         self.position = (self.position + 1) % self.capacity
 
@@ -41,8 +41,8 @@ class ReplayMemory_Prior:
         prob /= prob.sum()
         #prob = prob.squeeze(0)
         #print('check2', prob)
-
-        priorities = np.array(priorities, nan = 0)
+        priorities = np.array(priorities)
+        priorities = np.nan_to_num(priorities, nan = 0)
         indices = np.random.choice(len(self.memory), batch_size, p=prob)
         experiences = [self.memory[i] for i in indices]
         prob = np.nan_to_num(prob, nan=0)

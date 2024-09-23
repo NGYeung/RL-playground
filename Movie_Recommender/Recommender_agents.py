@@ -258,11 +258,11 @@ class Reco_Agent():
         non_empty_indicator = torch.tensor([1 if s is not None else 0 for s in next_states], device=self.device, dtype=torch.bool)
 
         # All experiences to tensor
-        weights = torch.tensor(weights)
+        weights = torch.tensor(weights).to(self.device)
         cat_next_states = torch.cat(next_states)
         cat_state = torch.cat(states)
-        cat_action  = torch.tensor(actions)
-        cat_reward = torch.tensor(rewards)
+        cat_action  = torch.tensor(actions).to(self.device)
+        cat_reward = torch.tensor(rewards).to(self.device)
         cat_state.resize_(batch_size, self.state_size).to(self.device).float().requires_grad_(True)
         cat_next_states.resize_(batch_size, self.state_size).to(self.device).float().requires_grad_(True)
         
@@ -308,8 +308,8 @@ class Reco_Agent():
         
     def load(self, filename = 'train_01.pth'):
         checkpoint = torch.load(filename)
-        self.policy_net.load_state_dict(checkpoint['policy'])
-        self.target_net.load_state_dict(checkpoint['target'])
+        self.policy_net.load_state_dict(checkpoint['policy']).to(self.device)
+        self.target_net.load_state_dict(checkpoint['target']).to(self.device)
         self.optimizer.load_state_dict(checkpoint['optimizer'])
         self.reward_in_episode = checkpoint['reward']
         self.config = checkpoint['config']

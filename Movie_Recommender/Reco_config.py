@@ -52,4 +52,4 @@ class Config4Colab:
         self.render_freq = 1000
         self.target_update_freq = 100
         self.save_freq = 1000
-        self.save_file_name = r'drive/'
+        self.save_file_name = r'/content/drive/RL/Movie100k.pt'
