@@ -36,13 +36,14 @@ class ReplayMemory_Prior:
             priorities = np.array(self.priority[:len(self.memory)])
             
         
+        priorities = np.array(priorities)
+        priorities = np.nan_to_num(priorities, nan = 0)
         prob = abs(priorities) ** alpha
         #print('check1', prob, priorities)
         prob /= prob.sum()
         #prob = prob.squeeze(0)
         #print('check2', prob)
-        priorities = np.array(priorities)
-        priorities = np.nan_to_num(priorities, nan = 0)
+        prob = np.nan_to_num(prob, nan=0)
         indices = np.random.choice(len(self.memory), batch_size, p=prob)
         experiences = [self.memory[i] for i in indices]
         prob = np.nan_to_num(prob, nan=0)
