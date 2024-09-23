@@ -40,14 +40,17 @@ class base_DQN(nn.Module):
         self.fc1 = nn.Linear(state_size, 64)
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, action_size)
-        self.softmax = F.log_softmax(action_size)
+        #self.softmax = F.log_softmax(action_size)
         
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
-        return self.softmax(x)
+        #print(x.shape)
+        x = F.log_softmax(x,dim=1)
+        #print(x.shape)
+        return x
 
 
 class Reco_Agent():
@@ -55,30 +58,32 @@ class Reco_Agent():
     A baseline agent for RL recommender
     '''
     
-    def __init__(self, dataset):
+    def __init__(self, train_data, test_data):
         
-        en = Reco_Env()
+        en = Reco_Env(train_data, test_data)
         self.config = Config() #alpha beta gamma batch_size
-        self.state_size = Config.self.state_size
+        self.state_size = self.config.state_size
         self.action_size = 5
         self.memory = ReplayMemory_Prior(self.config.mem_capacity)
-
+        self.step_count = 0
+        self.reward_in_episode = 0
         self.env = en
         self.id = int(time.time())
         
         #self.n_actions = self.env.action_space.n
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f'nums GPU: {torch.cuda.device_count()}')
         
         # Use Double DQN and if it's an overshoot then switch back to usual dqn
         if self.config.model == 'base':
             print("\n \t ----------- Model = Baseline Double DQN ------------")
             print("\t Loading Policy Net ......")
-            self.policy_net = base_DQN(self.state_size, self.action_size)
+            self.policy_net = base_DQN(self.state_size, self.action_size).to(self.device)
             print("\t *Total Params* = ",sum(p.numel() for p in self.policy_net.parameters()))
             print("\t *Trainable Params* = ",sum(p.numel() for p in self.policy_net.parameters() if p.requires_grad))
             
             print("\t Loading Target Net ......")
-            self.target_net = base_DQN().to(self.device)
+            self.target_net = base_DQN(self.state_size, self.action_size).to(self.device)
             
       
             
@@ -97,7 +102,7 @@ class Reco_Agent():
         '''
         Adaptively balance explore or exploit, using exponential decay
         '''
-        return self.config.endeps + (self.config.starteps - self.config.endeps)*math.exp(-1. * self.step_count / self.config.decay_eps/1000)
+        return self.config.endeps + (self.config.starteps - self.config.endeps)*math.exp(-1. * self.step_count / self.config.decay_eps/50)
              
 
     
@@ -105,23 +110,29 @@ class Reco_Agent():
         '''
         Select an action. This is the function to call when playing the game.
         '''
-        
+        self.step_count += 1
         sample = rnd.random()
         eps = self.eps_scheduler()
-        Q_sequence = self.policy_net(state)
+        Q_sequence = self.policy_net(state.unsqueeze(0))
+        #print('sequence:', Q_sequence)
             
         if sample > eps: #exploit
             with torch.no_grad():
               
-                Q, actions = torch.topk(Q_sequence, 1, sorted = False)
+                Q, action = torch.topk(Q_sequence, 1, sorted = False)
+                #print('policy: Q, action', Q, action)
+                Q = Q.squeeze().squeeze()
+                action = action.squeeze().squeeze()
               
                 
         else: 
             
             # explore by randomly rate the film and observe the reward
             action = rnd.choice([0,1,2,3,4])
-            Q = Q_sequence[action]
-            return action, Q
+            Q = Q_sequence.squeeze().detach()[action]
+            #print('random: Q, action', Q, action)
+            
+        return int(action), Q
         
         
 
@@ -137,25 +148,40 @@ class Reco_Agent():
         mseloss = 0
       
         state, rating = self.env.reset()
+        state =  state.to(self.device)
+        rating =  rating.to(self.device)
         for epi_idx in range(num_episodes):
             # episode start. Initiate env.
             
+            
             action, Q = self.act(state)
+        
             reward = self.env.step(int(action))
+            self.reward_in_episode = reward
             
             prev_state = state
             
             mseloss += (rating - action -1)**2
             
+            if epi_idx % self.config.render_freq == 0:
+                print('episode:', epi_idx)
+                self.env.render()
+                print('exploit vs explore:', self.eps_scheduler())
+            
             state, rating = self.env.reset()
+            state =  state.to(self.device)
+            rating =  rating.to(self.device)
             
             # Compute the TD error for prioritized experience replay
-            Q_next = max(self.policy_nets(state))
+            Q_next = torch.max(self.policy_net(state.unsqueeze(0)))
+
             TD_error = reward + self.config.gamma* Q_next - Q
+            
+            #print('ErrorShape',TD_error.shape, Q_next, Q, reward, self.config.gamma)
             
             
             # store the transition
-            self.memory.push(TD_error, prev_state, action, reward, state)
+            self.memory.push(TD_error.detach(), prev_state, action, reward, state)
             
                 
             if epi_idx >= self.config.warmup: 
@@ -163,10 +189,7 @@ class Reco_Agent():
                 self.scheduler.step()
    
             # render frequency
-            if epi_idx % self.config.render_freq == 0:
-                print('episode:', epi_idx)
-                self.env.render()
-                print('exploit vs explore:', self.eps_scheduler())
+            
                 
         
             # Update the target network
@@ -195,6 +218,8 @@ class Reco_Agent():
         while go:
             counter += 1
             state, rating, go = self.env.reset_for_eval()
+            state =  state.to(self.device)
+            rating =  rating.to(self.device)
             action, _ = self.act(state)
             
             Error += (action - rating - 1) **2
@@ -221,15 +246,20 @@ class Reco_Agent():
         
         # Stochastic Prioritized Sampling
         experiences, weights, indices = self.memory.sample(batch_size)
-
         
+        states = [i.state for i in experiences]
+        next_states = [i.next_state for i in experiences]
+        rewards = [i.reward for i in experiences]
+        actions = [i.action for i in experiences]
+
+        non_empty_indicator = torch.tensor([1 if s is not None else 0 for s in next_states], device=self.device, dtype=torch.bool)
 
         # All experiences to tensor
         weights = torch.tensor(weights)
-        cat_next_states = torch.cat(experiences.next_state)
-        cat_state = torch.cat(experiences.state)
-        cat_action  = torch.tensor(experiences.action)
-        cat_reward = torch.tensor(experiences.reward)
+        cat_next_states = torch.cat(next_states)
+        cat_state = torch.cat(states)
+        cat_action  = torch.tensor(actions)
+        cat_reward = torch.tensor(rewards)
         cat_state.resize_(batch_size, self.state_size).to(self.device).float().requires_grad_(True)
         cat_next_states.resize_(batch_size, self.state_size).to(self.device).float().requires_grad_(True)
         
@@ -237,7 +267,7 @@ class Reco_Agent():
         # compute Q from policy_net
         curr_state_Q = self.policy_net(cat_state.float())[torch.arange(batch_size), cat_action] 
         next_state_Q = torch.zeros(batch_size, device=self.device, dtype=torch.float)
-        next_state_Q = self.target_net(cat_next_states.float()).max(1)[0].detach()
+        next_state_Q[non_empty_indicator] = self.target_net(cat_next_states.float()).max(1)[0].detach()
     
         # Compute the expected Q values
         expected_curr_state_Q = (next_state_Q * self.config.gamma) + cat_reward

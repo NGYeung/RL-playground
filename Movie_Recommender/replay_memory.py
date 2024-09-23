@@ -9,7 +9,7 @@ import numpy.random as rnd
 from collections import namedtuple
 
 # Define a tuple to store transitions
-Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'TD_error'))
+Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state'))
 
 class ReplayMemory_Prior:
     def __init__(self, capacity):
@@ -31,12 +31,17 @@ class ReplayMemory_Prior:
         """Prioritize sampling: a batch of transitions."""
         
         if len(self.memory) == self.capacity:
-            priorities = self.priorities
+            priorities = np.array(self.priority)
         else:
-            priorities = self.priorities[:self.position]
+            priorities = np.array(self.priority[:len(self.memory)])
             
-        prob = priorities ** alpha
+        
+        prob = abs(priorities) ** alpha
+        #print('check1', prob, priorities)
         prob /= prob.sum()
+        #prob = prob.squeeze(0)
+        #print('check2', prob)
+
 
         indices = np.random.choice(len(self.memory), batch_size, p=prob)
         experiences = [self.memory[i] for i in indices]
@@ -45,6 +50,7 @@ class ReplayMemory_Prior:
         total = len(self.memory)
         weights = (total * prob[indices]) ** (-1)
         weights /= weights.max()
+  
 
     
         return experiences, weights, indices

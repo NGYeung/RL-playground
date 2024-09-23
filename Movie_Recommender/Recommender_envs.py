@@ -13,7 +13,7 @@ import random as rnd
 import logging
 from typing import List
 from numba import njit
-
+import torch
 from MovieLens import Movie_100K, Data2State
 
 
@@ -28,7 +28,7 @@ class Reco_Env(gym.Env):
     
     metadata = {'render.modes': ['human']}
     
-    def __init__(self, train_dataset, test_dataset, embedding_size = 64, train_test_split = 0.8):
+    def __init__(self, train_dataset, test_dataset, embedding_size = 16, train_test_split = 0.8):
         """Initialize the hangman game environment. """
         
         
@@ -37,14 +37,14 @@ class Reco_Env(gym.Env):
         self.action_space = Discrete(5)  # action i correspondent to score i+1
        
         
-        self.observation_space = Tuple(Box(low=1.0, high=5.0, shape = (2,)),
-                                       Box(low = -1, high = 1, shape = (8,)),
+        self.observation_space = Tuple((Box(low=1.0, high=5.0, shape = (2,)),
+                                       Box(low = -1, high = 1, shape = (16,)),
                                        Box(low=-1, high = 3,shape=(5,)),
                                        MultiBinary(19),
                                        Discrete(99),
                                        Discrete(2),
                                        MultiBinary(20)
-                                       )
+                                       ))
         # An observation includes:
         # observation 0: the average rating of the film and the average rating given by the user
         # observation 1: title_embedding. Choose embedding length = 8
@@ -68,10 +68,11 @@ class Reco_Env(gym.Env):
 
     def reset(self):
         """Reset the state of the environment to an initial state"""
-        idx = rnd.randint(0, 100000)
+        idx = rnd.randint(0, 79999)
+        #sprint(idx)
         data_item = self.traindata[idx]
-        self.state = Data2State(data_item)
-        self.rating = data_item['rating']
+        self.state = torch.tensor(Data2State(data_item)).float()
+        self.rating = torch.tensor(data_item['rating'])
         
         return self.get_observation()
     
@@ -83,8 +84,8 @@ class Reco_Env(gym.Env):
         idx = self.index
         
         data_item = self.testdata[idx]
-        self.state = Data2State(data_item)
-        self.rating = data_item['rating']
+        self.state = torch.tensor(Data2State(data_item))
+        self.rating = torch.tensor(data_item['rating'])
         
         go = True
         self.index += 1
@@ -108,7 +109,8 @@ class Reco_Env(gym.Env):
         
         self.action = action
         
-        measure = abs(action - self.rating)
+        measure = abs(self.action - self.rating)
+        
         reward = 0
         
         if measure == 0:
@@ -121,6 +123,7 @@ class Reco_Env(gym.Env):
             reward = -3
         
         self.reward = reward
+        #print('check', self.action, self.rating, reward)
         
         return self.reward
     
@@ -136,7 +139,7 @@ class Reco_Env(gym.Env):
     
     def render(self, mode='human'):
         
-        print(f"Movie: {self.data_item['title']}")
+        #print(f"Movie: {self.traindata['title']}")
         print(f"User Rating: {self.rating}")
         print(f"Predicted Rating: {self.action}")
         print(f"Reward: {self.reward}")

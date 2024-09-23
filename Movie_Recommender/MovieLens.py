@@ -162,16 +162,14 @@ def Data2State(Data):
     Input: one instance of Data
     '''
     stack = []
-    obs0 = torch.zeros((2,))
-    obs0[1] = Data['average_rating'][-1]
-    obs0[0] = Data['film_avg_rating']
-    stack.append(obs0)
-    stack.append(Data['title_embedding'])
-    stack.append(torch.tensor(Data['date']))
-    stack.append(torch.tensor(Data['genre']))
-    stack.append(torch.tensor([Data['age']]))
-    stack.append(torch.tensor([Data['gender']]))
-    stack.append(torch.tensor(Data['occupation']))
+    stack.append(Data['average_rating'][-1])
+    stack.append(Data['film_avg_rating'])
+    stack += Data['title_embedding'].tolist()
+    stack += list(Data['date'])
+    stack += list(Data['genre'])
+    stack.append(Data['age'])
+    stack.append(Data['gender'])
+    stack += torch.tensor(Data['occupation']).tolist()
     
     
     # An observation includes:
@@ -186,8 +184,12 @@ def Data2State(Data):
     #so far location is excluded, can be added in the future. 
     
     
-    return np.array(torch.stack(stack, dim=0))
+    return np.array(stack)
     # use np array because we want to use njit for state operation.
+    
+    
+    
+
     
     
 
