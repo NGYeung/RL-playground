@@ -42,6 +42,9 @@ class base_DQN(nn.Module):
         self.fc3 = nn.Linear(64, action_size)
         #self.softmax = F.log_softmax(action_size)
         
+        nn.init.kaiming_uniform_(self.fc1.weight, nonlinearity='relu')
+        nn.init.kaiming_uniform_(self.fc2.weight, nonlinearity='relu')
+        
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
@@ -102,7 +105,7 @@ class Reco_Agent():
         '''
         Adaptively balance explore or exploit, using exponential decay
         '''
-        return self.config.endeps + (self.config.starteps - self.config.endeps)*math.exp(-1. * self.step_count / self.config.decay_eps/50)
+        return self.config.endeps + (self.config.starteps - self.config.endeps)*math.exp(-1. * self.step_count / self.config.decay_eps/500)
              
 
     
@@ -223,13 +226,13 @@ class Reco_Agent():
             state, rating, go = self.env.reset_for_eval()
             state =  state.to(self.device)
             rating =  rating.to(self.device)
-            action, _ = self.act(state)
+            action, _ = self.act(state.float())
             
-            Error += (action - rating - 1) **2
+            Error += (rating - 1-action) **2
         
         Error = Error/counter
         
-        print("Test run finished. The final testing loss is: {Error}")
+        print(f"Test run finished. The final testing loss is: {Error}")
         print(f"Total time for evaluation: {time.time() -  start} seconds")
         
 
@@ -306,18 +309,37 @@ class Reco_Agent():
             "config": self.config
             }, filename)
         
+
+        
     def load(self, filename = '\content\drive\MyDrive\RL\Movie100K.pt'):
-        checkpoint = torch.load(filename)
+        CUDAAA = torch.cuda.is_available()
+        if CUDAAA:
+            checkpoint = torch.load(filename)
+        else:
+            checkpoint = torch.load(filename, map_location=torch.device('cpu'))
+        
+        #print(checkpoint['config'])
     
         # Check for incompatible keys
-        result = self.policy_net.load_state_dict(checkpoint['policy'], strict=False)
+        if CUDAAA:
+            result = self.policy_net.load_state_dict(checkpoint['policy'], strict=False)
+            
+        else:
+            self.device = torch.device('cpu')
+            result = self.policy_net.load_state_dict(checkpoint['policy'], strict=False)
+            
+            
         if result.missing_keys:
             print(f"Missing keys in policy: {result.missing_keys}")
         if result.unexpected_keys:
-            print(f"Unexpected keys in policy: {result.unexpected_keys}")        
+            print(f"Unexpected keys in policy: {result.unexpected_keys}")   
         self.policy_net.to(self.device)
+        
     
-        result = self.target_net.load_state_dict(checkpoint['target'], strict=False)
+        if CUDAAA:
+            result = self.target_net.load_state_dict(checkpoint['target'], strict=False)
+        else:
+            result = self.target_net.load_state_dict(checkpoint['target'], strict=False)
         if result.missing_keys:
             print(f"Missing keys in target: {result.missing_keys}")
         if result.unexpected_keys:
@@ -327,6 +349,7 @@ class Reco_Agent():
         self.optimizer.load_state_dict(checkpoint['optimizer'])
         self.reward_in_episode = checkpoint['reward'] 
         self.config = checkpoint['config']
+        
     
 
 
