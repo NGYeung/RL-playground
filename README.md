@@ -1,4 +1,4 @@
-# RL-playground-hangman-movieReco
+
 This repository is my playground for reinforcement learning.
 
 # Project 1.0: Movie Recommender with (DDQN and GNN)
