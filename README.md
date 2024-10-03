@@ -42,4 +42,4 @@ This repository is my playground for reinforcement learning.
   - wrong guess -1
   - win game +10
   - lose game -10
-- Result after one epoch on table-based Q: 61%
+- Result after one epoch on table-based Q-learning: 61%
