@@ -22,7 +22,7 @@ This repository is my playground for reinforcement learning.
       - `D >= 3 -> -3`
      
  ## Results
- -Baseline Model: RMSE = 1.38 after 3 epochs of training.
+ -Baseline Model: RMSE = 1.18 after 10 epochs of training.
      
 
 
