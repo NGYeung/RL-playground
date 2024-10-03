@@ -1,7 +1,7 @@
 # RL-playground-hangman-movieReco
 This repository is my playground for reinforcement learning.
 
-# Project 1: Movie Recommender with (DDQN and GNN)
+# Project 1.0: Movie Recommender with (DDQN and GNN)
 ## Descriptions
 - All files and training notebooks are in the `Movie_Recommender` folder
 - Data Set: MovieLens 100K
@@ -23,11 +23,14 @@ This repository is my playground for reinforcement learning.
      
  ## Results
  -Baseline Model: RMSE = 1.18 after 10 epochs of training.
-     
+
+<br>
+
+# Project 1.1: Sequential Recommendation based on RL
 
 
 <br>
-<hr>
+
 
 ## Project 2: Q-learning for Hangman.
 - All files and training notebooks are in the `hangman` folder.
