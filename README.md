@@ -26,13 +26,13 @@ This repository is my playground for reinforcement learning.
 
 <br>
 
-# Project 1.1: Sequential Recommendation based on RL
+# Project 1.1: Sequential Recommendation based on RL (TB finished)
 
 
 <br>
 
 
-## Project 2: Q-learning for Hangman.
+# Project 2: Q-learning for Hangman.
 - All files and training notebooks are in the `hangman` folder.
 - This repository provided gym environments and agents for both table-based and Deep NN Q-learning.
 - State:
